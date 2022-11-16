@@ -15,7 +15,11 @@ func main() {
 	flag.StringVar(&domain, "domain", domain, "Domain name")
 	flag.Parse()
 
-	api, err := cloudflare.NewWithAPIToken(os.Getenv("CLOUDFLARE_API_TOKEN"))
+	// https://github.com/tamalsaha/cloudflare-dns-proxy
+	cfProxy := "http://127.0.0.1:63707"
+	// , cloudflare.BaseURL(cfProxy)
+	fmt.Println(cfProxy)
+	api, err := cloudflare.NewWithAPIToken(os.Getenv("CLOUDFLARE_API_TOKEN"), cloudflare.BaseURL(cfProxy))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -29,6 +33,7 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println("Zone ID:", id)
+	os.Exit(1)
 
 	records, err := api.DNSRecords(ctx, id, cloudflare.DNSRecord{})
 	if err != nil {

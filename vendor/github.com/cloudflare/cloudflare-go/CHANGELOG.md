@@ -1,4 +1,22 @@
-## 0.54.0 (Unreleased)
+## 0.55.0 (Unreleased)
+
+DEPENDENCIES:
+
+* deps: bumps github.com/urfave/cli/v2 from 2.23.4 to 2.23.5 ([#1127](https://github.com/cloudflare/cloudflare-go/issues/1127))
+
+## 0.54.0 (November 9th, 2022)
+
+ENHANCEMENTS:
+
+* access: add support for service token rotation ([#1120](https://github.com/cloudflare/cloudflare-go/issues/1120))
+* deps: fix import grouping, code formatting and enable goimports linter ([#1121](https://github.com/cloudflare/cloudflare-go/issues/1121))
+
+DEPENDENCIES:
+
+* deps: bumps dependabot/fetch-metadata from 1.3.4 to 1.3.5 ([#1123](https://github.com/cloudflare/cloudflare-go/issues/1123))
+* deps: bumps github.com/urfave/cli/v2 from 2.20.3 to 2.23.0 ([#1122](https://github.com/cloudflare/cloudflare-go/issues/1122))
+* deps: bumps github.com/urfave/cli/v2 from 2.23.0 to 2.23.2 ([#1124](https://github.com/cloudflare/cloudflare-go/issues/1124))
+* deps: bumps github.com/urfave/cli/v2 from 2.23.2 to 2.23.4 ([#1125](https://github.com/cloudflare/cloudflare-go/issues/1125))
 
 ## 0.53.0 (October 26th, 2022)
 

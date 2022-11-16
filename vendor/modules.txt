@@ -1,4 +1,4 @@
-# github.com/cloudflare/cloudflare-go v0.53.0
+# github.com/cloudflare/cloudflare-go v0.53.0 => github.com/tamalsaha/cloudflare-go v0.0.0-20221116052858-a7bd897dd9dd
 ## explicit; go 1.17
 github.com/cloudflare/cloudflare-go
 # github.com/google/go-querystring v1.1.0
@@ -22,3 +22,4 @@ golang.org/x/text/unicode/norm
 # golang.org/x/time v0.0.0-20220224211638-0e9765cccd65
 ## explicit
 golang.org/x/time/rate
+# github.com/cloudflare/cloudflare-go => github.com/tamalsaha/cloudflare-go v0.0.0-20221116052858-a7bd897dd9dd

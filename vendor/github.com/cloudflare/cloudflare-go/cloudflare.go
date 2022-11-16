@@ -11,6 +11,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"strconv"
 	"strings"
@@ -408,9 +409,17 @@ func (api *API) request(ctx context.Context, method, uri string, reqBody io.Read
 		req.Header.Set("Content-Type", "application/json")
 	}
 
+	if data, err := httputil.DumpRequestOut(req, true); err == nil {
+		fmt.Println("REQUEST: >>>>>>>>>>>>>>>>>>>>>>>")
+		fmt.Println(string(data))
+	}
 	resp, err := api.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
+	}
+	if data, err := httputil.DumpResponse(resp, true); err == nil {
+		fmt.Println("RESPONSE: >>>>>>>>>>>>>>>>>>>>>>>")
+		fmt.Println(string(data))
 	}
 
 	return resp, nil
