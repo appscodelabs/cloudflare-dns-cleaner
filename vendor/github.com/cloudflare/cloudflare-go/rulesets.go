@@ -3,12 +3,11 @@ package cloudflare
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
-
-	"errors"
 )
 
 const (
@@ -331,6 +330,7 @@ type RulesetRuleActionParametersCustomKeyFields struct {
 type RulesetRuleActionParametersCustomKeyQuery struct {
 	Include *RulesetRuleActionParametersCustomKeyList `json:"include,omitempty"`
 	Exclude *RulesetRuleActionParametersCustomKeyList `json:"exclude,omitempty"`
+	Ignore  *bool                                     `json:"ignore,omitempty"`
 }
 
 type RulesetRuleActionParametersCustomKeyList struct {
@@ -643,12 +643,14 @@ type RulesetRule struct {
 
 // RulesetRuleRateLimit contains the structure of a HTTP rate limit Ruleset Rule.
 type RulesetRuleRateLimit struct {
-	Characteristics    []string `json:"characteristics,omitempty"`
-	RequestsPerPeriod  int      `json:"requests_per_period,omitempty"`
-	Period             int      `json:"period,omitempty"`
-	MitigationTimeout  int      `json:"mitigation_timeout,omitempty"`
-	CountingExpression string   `json:"counting_expression,omitempty"`
-	RequestsToOrigin   bool     `json:"requests_to_origin,omitempty"`
+	Characteristics         []string `json:"characteristics,omitempty"`
+	RequestsPerPeriod       int      `json:"requests_per_period,omitempty"`
+	ScorePerPeriod          int      `json:"score_per_period,omitempty"`
+	ScoreResponseHeaderName string   `json:"score_response_header_name,omitempty"`
+	Period                  int      `json:"period,omitempty"`
+	MitigationTimeout       int      `json:"mitigation_timeout,omitempty"`
+	CountingExpression      string   `json:"counting_expression,omitempty"`
+	RequestsToOrigin        bool     `json:"requests_to_origin,omitempty"`
 }
 
 // RulesetRuleExposedCredentialCheck contains the structure of an exposed
