@@ -14,6 +14,7 @@ func main() {
 	domain := "appscode.cloud"
 	flag.StringVar(&domain, "domain", domain, "Domain name")
 	flag.Parse()
+	fmt.Println("Domain to delete all DNS records from: ", domain)
 
 	api, err := cloudflare.NewWithAPIToken(os.Getenv("CLOUDFLARE_API_TOKEN"))
 	if err != nil {
@@ -29,15 +30,17 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println("Zone ID:", id)
-
-	records, err := api.DNSRecords(ctx, id, cloudflare.DNSRecord{})
+	
+	zoneId := cloudflare.ZoneIdentifier(id)
+	records, _, err := api.ListDNSRecords(ctx, zoneId, cloudflare.ListDNSRecordsParams{})
 	if err != nil {
 		log.Fatal(err)
 	}
 	for _, r := range records {
-		fmt.Println(r.Content)
-		if err := api.DeleteDNSRecord(ctx, id, r.ID); err != nil {
+		fmt.Printf("%s: %s", r.Name, r.Content)
+		if err := api.DeleteDNSRecord(ctx, zoneId, r.ID); err != nil {
 			log.Fatal(err)
 		}
+		fmt.Println(" DELETED")
 	}
 }
