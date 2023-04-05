@@ -1,4 +1,51 @@
-## 0.63.0 (Unreleased)
+## 0.65.0 (Unreleased)
+
+## 0.64.0 (29th March, 2023)
+
+BREAKING CHANGES:
+
+* dns: Changed Create/UpdateDNSRecord method signatures to return (DNSRecord, error) ([#1243](https://github.com/cloudflare/cloudflare-go/issues/1243))
+* zone: `UpdateZoneSingleSetting` has been renamed to `UpdateZoneSetting` and updated method signature inline with our expected conventions ([#1251](https://github.com/cloudflare/cloudflare-go/issues/1251))
+* zone: `ZoneSingleSetting` has been renamed to `GetZoneSetting` and updated method signature inline with our expected conventions ([#1251](https://github.com/cloudflare/cloudflare-go/issues/1251))
+
+ENHANCEMENTS:
+
+* access_identity_provider: add `claims` and `scopes` fields ([#1237](https://github.com/cloudflare/cloudflare-go/issues/1237))
+* access_identity_provider: add scim_config field ([#1178](https://github.com/cloudflare/cloudflare-go/issues/1178))
+* devices_policy: update `Mode` field to use new `ServiceMode` string type with explicit const service mode values ([#1249](https://github.com/cloudflare/cloudflare-go/issues/1249))
+* ssl: make `GeoRestrictions` a pointer inside of ZoneCustomSSL ([#1244](https://github.com/cloudflare/cloudflare-go/issues/1244))
+* zone: `GetZoneSetting` and `UpdateZoneSetting` now allow configuring the path for where a setting resides instead of assuming `settings` ([#1251](https://github.com/cloudflare/cloudflare-go/issues/1251))
+
+BUG FIXES:
+
+* teams_rules: `AllowChildBypass` changes from a `bool` to `*bool` ([#1242](https://github.com/cloudflare/cloudflare-go/issues/1242))
+* teams_rules: `BypassParentRule` changes from a `bool` to `*bool` ([#1242](https://github.com/cloudflare/cloudflare-go/issues/1242))
+* tunnel: Fix 'CreateTunnel' for tunnels using config_src ([#1238](https://github.com/cloudflare/cloudflare-go/issues/1238))
+
+DEPENDENCIES:
+
+* deps: bumps actions/setup-go from 3 to 4 ([#1236](https://github.com/cloudflare/cloudflare-go/issues/1236))
+* deps: bumps github.com/urfave/cli/v2 from 2.25.0 to 2.25.1 ([#1250](https://github.com/cloudflare/cloudflare-go/issues/1250))
+
+## 0.63.0 (15th March, 2023)
+
+BREAKING CHANGES:
+
+* tunnel: renamed `Tunnel` to `GetTunnel` ([#1227](https://github.com/cloudflare/cloudflare-go/issues/1227))
+* tunnel: renamed `Tunnels` to `ListTunnels` ([#1227](https://github.com/cloudflare/cloudflare-go/issues/1227))
+
+ENHANCEMENTS:
+
+* access_organization: add ui_read_only_toggle_reason field ([#1181](https://github.com/cloudflare/cloudflare-go/issues/1181))
+* added audit_ssh to gateway actions, updated gateway rule settings ([#1226](https://github.com/cloudflare/cloudflare-go/issues/1226))
+* addressing: Add `Address Map` support ([#1232](https://github.com/cloudflare/cloudflare-go/issues/1232))
+* teams_account: add support for `check_disks` ([#1197](https://github.com/cloudflare/cloudflare-go/issues/1197))
+* tunnel: updated parameters to latest API docs ([#1227](https://github.com/cloudflare/cloudflare-go/issues/1227))
+
+DEPENDENCIES:
+
+* deps: bumps github.com/urfave/cli/v2 from 2.24.4 to 2.25.0 ([#1229](https://github.com/cloudflare/cloudflare-go/issues/1229))
+* deps: bumps golang.org/x/net from 0.7.0 to 0.8.0 ([#1228](https://github.com/cloudflare/cloudflare-go/issues/1228))
 
 ## 0.62.0 (1st March, 2023)
 
