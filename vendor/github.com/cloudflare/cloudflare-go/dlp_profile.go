@@ -37,11 +37,10 @@ type DLPEntry struct {
 // DLPProfile represents a DLP Profile, which contains a set
 // of entries.
 type DLPProfile struct {
-	ID                string `json:"id,omitempty"`
-	Name              string `json:"name,omitempty"`
-	Type              string `json:"type,omitempty"`
-	Description       string `json:"description,omitempty"`
-	AllowedMatchCount int    `json:"allowed_match_count"`
+	ID          string `json:"id,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Type        string `json:"type,omitempty"`
+	Description string `json:"description,omitempty"`
 
 	// The following fields are omitted for predefined DLP
 	// profiles

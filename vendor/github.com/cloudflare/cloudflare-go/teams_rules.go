@@ -35,31 +35,6 @@ type TeamsRuleSettings struct {
 
 	// whether to disable dnssec validation for allow action
 	InsecureDisableDNSSECValidation bool `json:"insecure_disable_dnssec_validation"`
-
-	EgressSettings *EgressSettings `json:"egress"`
-
-	// DLP payload logging configuration
-	PayloadLog *TeamsDlpPayloadLogSettings `json:"payload_log"`
-
-	UntrustedCertSettings *UntrustedCertSettings `json:"untrusted_cert"`
-}
-
-type TeamsGatewayUntrustedCertAction string
-
-const (
-	UntrustedCertPassthrough TeamsGatewayUntrustedCertAction = "pass_through"
-	UntrustedCertBlock       TeamsGatewayUntrustedCertAction = "block"
-	UntrustedCertError       TeamsGatewayUntrustedCertAction = "error"
-)
-
-type UntrustedCertSettings struct {
-	Action TeamsGatewayUntrustedCertAction `json:"action"`
-}
-
-type EgressSettings struct {
-	Ipv6Range    string `json:"ipv6"`
-	Ipv4         string `json:"ipv4"`
-	Ipv4Fallback string `json:"ipv4_fallback"`
 }
 
 // TeamsL4OverrideSettings used in l4 filter type rule with action set to override.
@@ -81,19 +56,14 @@ type TeamsCheckSessionSettings struct {
 	Duration Duration `json:"duration"`
 }
 
-type TeamsDlpPayloadLogSettings struct {
-	Enabled bool `json:"enabled"`
-}
-
 type TeamsFilterType string
 
 type TeamsGatewayAction string
 
 const (
-	HttpFilter   TeamsFilterType = "http"
-	DnsFilter    TeamsFilterType = "dns"
-	L4Filter     TeamsFilterType = "l4"
-	EgressFilter TeamsFilterType = "egress"
+	HttpFilter TeamsFilterType = "http"
+	DnsFilter  TeamsFilterType = "dns"
+	L4Filter   TeamsFilterType = "l4"
 )
 
 const (
@@ -109,7 +79,6 @@ const (
 	NoIsolate    TeamsGatewayAction = "noisolate"
 	Override     TeamsGatewayAction = "override"
 	L4Override   TeamsGatewayAction = "l4_override"
-	Egress       TeamsGatewayAction = "egress"
 )
 
 func TeamsRulesActionValues() []string {
@@ -126,15 +95,6 @@ func TeamsRulesActionValues() []string {
 		string(NoIsolate),
 		string(Override),
 		string(L4Override),
-		string(Egress),
-	}
-}
-
-func TeamsRulesUntrustedCertActionValues() []string {
-	return []string{
-		string(UntrustedCertPassthrough),
-		string(UntrustedCertBlock),
-		string(UntrustedCertError),
 	}
 }
 

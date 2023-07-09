@@ -1,4 +1,4 @@
-# github.com/cloudflare/cloudflare-go v0.62.0
+# github.com/cloudflare/cloudflare-go v0.53.0
 ## explicit; go 1.17
 github.com/cloudflare/cloudflare-go
 # github.com/google/go-querystring v1.1.0

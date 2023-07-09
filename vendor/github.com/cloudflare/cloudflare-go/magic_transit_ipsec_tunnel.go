@@ -3,10 +3,11 @@ package cloudflare
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
+
+	"errors"
 )
 
 // Magic Transit IPsec Tunnel Error messages.
@@ -32,7 +33,7 @@ type MagicTransitIPsecTunnel struct {
 	CreatedOn          *time.Time                          `json:"created_on,omitempty"`
 	ModifiedOn         *time.Time                          `json:"modified_on,omitempty"`
 	Name               string                              `json:"name"`
-	CustomerEndpoint   string                              `json:"customer_endpoint,omitempty"`
+	CustomerEndpoint   string                              `json:"customer_endpoint"`
 	CloudflareEndpoint string                              `json:"cloudflare_endpoint"`
 	InterfaceAddress   string                              `json:"interface_address"`
 	Description        string                              `json:"description,omitempty"`

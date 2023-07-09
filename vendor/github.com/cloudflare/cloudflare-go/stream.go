@@ -101,7 +101,7 @@ type StreamUploadFromURLParameters struct {
 	Creator               string                  `json:"creator,omitempty"`
 	ThumbnailTimestampPct float64                 `json:"thumbnailTimestampPct,omitempty"`
 	AllowedOrigins        []string                `json:"allowedOrigins,omitempty"`
-	RequireSignedURLs     bool                    `json:"requireSignedURLs,omitempty"`
+	RequiredSignedURLs    bool                    `json:"requiredSignedURLs,omitempty"`
 	Watermark             UploadVideoURLWatermark `json:"watermark,omitempty"`
 }
 
@@ -113,7 +113,7 @@ type StreamCreateVideoParameters struct {
 	Creator               string                  `json:"creator,omitempty"`
 	ThumbnailTimestampPct float64                 `json:"thumbnailTimestampPct,omitempty"`
 	AllowedOrigins        []string                `json:"allowedOrigins,omitempty"`
-	RequireSignedURLs     bool                    `json:"requireSignedURLs,omitempty"`
+	RequiredSignedURLs    bool                    `json:"requiredSignedURLs,omitempty"`
 	Watermark             UploadVideoURLWatermark `json:"watermark,omitempty"`
 }
 
