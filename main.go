@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	domain := "appscode.cloud"
+	domain := "bytebuilders.xyz"
 	flag.StringVar(&domain, "domain", domain, "Domain name")
 	flag.Parse()
 
