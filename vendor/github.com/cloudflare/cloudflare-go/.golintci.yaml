@@ -1,17 +1,8 @@
 run:
-  # timeout for analysis, e.g. 30s, 5m, default is 1m
-  timeout: 1m
-
-  # exit code when at least one issue was found, default is 1
+  timeout: 5m
   issues-exit-code: 1
-
-  # include test files or not, default is true
   tests: true
-
-  # default is true. Enables skipping of directories:
-  #   vendor$, third_party$, testdata$, examples$, Godeps$, builtin$
   skip-dirs-use-default: true
-
   modules-download-mode: readonly
 
 linters:
@@ -32,6 +23,7 @@ linters:
     - exportloopref  # prevent scope issues with pointers in loops.
     - goconst        # use constants where values are repeated.
     - reassign       # checks that package variables are not reassigned.
+    - goimports      # checks import grouping and code formatting.
 
 output:
   format: colored-line-number
