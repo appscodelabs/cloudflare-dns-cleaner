@@ -4,40 +4,61 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
+	"strings"
 
 	"github.com/cloudflare/cloudflare-go"
+	"golang.org/x/net/publicsuffix"
 )
 
 func main() {
-	domain := "bytebuilders.xyz"
-	flag.StringVar(&domain, "domain", domain, "Domain name")
+	fqdn := ""
+	flag.StringVar(&fqdn, "fqdn", fqdn, "Domain name")
 	flag.Parse()
 
-	api, err := cloudflare.NewWithAPIToken(os.Getenv("CLOUDFLARE_API_TOKEN"))
-	if err != nil {
-		log.Fatal(err)
+	if fqdn == "" {
+		panic("set --fqdn flag")
 	}
 
-	// Most API calls require a Context
+	ListDNSRecords(fqdn, false)
+}
+
+func ListDNSRecords(fqdn string, del bool) error {
+	api, err := cloudflare.NewWithAPIToken(os.Getenv("CLOUDFLARE_API_TOKEN"))
+	if err != nil {
+		return err
+	}
+
+	domain, err := publicsuffix.EffectiveTLDPlusOne(fqdn)
+	if err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
-	// Fetch the zone ID
-	id, err := api.ZoneIDByName(domain) // Assuming example.com exists in your Cloudflare account already
+	id, err := api.ZoneIDByName(domain)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	fmt.Println("Zone ID:", id)
 
-	records, err := api.DNSRecords(ctx, id, cloudflare.DNSRecord{})
+	rc := cloudflare.ResourceContainer{
+		Type:       cloudflare.ZoneType,
+		Identifier: id,
+	}
+	records, _, err := api.ListDNSRecords(ctx, &rc, cloudflare.ListDNSRecordsParams{})
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	for _, r := range records {
-		fmt.Println(r.Content)
-		if err := api.DeleteDNSRecord(ctx, id, r.ID); err != nil {
-			log.Fatal(err)
+		if r.Name == fqdn || strings.HasSuffix(r.Name, "."+fqdn) {
+			fmt.Println(r.Type, r.Name)
+			if del {
+				if err := api.DeleteDNSRecord(ctx, &rc, r.ID); err != nil {
+					return err
+				}
+			}
 		}
 	}
+	return nil
 }

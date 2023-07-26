@@ -1,11 +1,10 @@
 package cloudflare
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
-
-	"errors"
 )
 
 const (
@@ -30,7 +29,9 @@ const (
 	errAPIKeysAndTokensAreMutuallyExclusive   = "API keys and tokens are mutually exclusive" //nolint:gosec
 	errMissingCredentials                     = "no credentials provided"
 
-	errInvalidResourceContainerAccess = "requested resource container (%q) is not supported for this endpoint"
+	errInvalidResourceContainerAccess        = "requested resource container (%q) is not supported for this endpoint"
+	errRequiredAccountLevelResourceContainer = "this endpoint requires using an account level resource container and identifiers"
+	errRequiredZoneLevelResourceContainer    = "this endpoint requires using a zone level resource container and identifiers"
 )
 
 var (
@@ -41,6 +42,9 @@ var (
 	ErrAccountIDOrZoneIDAreRequired           = errors.New(errMissingAccountOrZoneID)
 	ErrAccountIDAndZoneIDAreMutuallyExclusive = errors.New(errAccountIDAndZoneIDAreMutuallyExclusive)
 	ErrMissingResourceIdentifier              = errors.New(errMissingResourceIdentifier)
+
+	ErrRequiredAccountLevelResourceContainer = errors.New(errRequiredAccountLevelResourceContainer)
+	ErrRequiredZoneLevelResourceContainer    = errors.New(errRequiredZoneLevelResourceContainer)
 )
 
 type ErrorType string

@@ -11,7 +11,9 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -43,7 +45,6 @@ type API struct {
 	APIUserServiceKey string
 	APIToken          string
 	BaseURL           string
-	AccountID         string
 	UserAgent         string
 	headers           http.Header
 	httpClient        *http.Client
@@ -65,8 +66,8 @@ func newClient(opts ...Option) (*API, error) {
 		rateLimiter: rate.NewLimiter(rate.Limit(4), 1), // 4rps equates to default api limit (1200 req/5 min)
 		retryPolicy: RetryPolicy{
 			MaxRetries:    3,
-			MinRetryDelay: time.Duration(1) * time.Second,
-			MaxRetryDelay: time.Duration(30) * time.Second,
+			MinRetryDelay: 1 * time.Second,
+			MaxRetryDelay: 30 * time.Second,
 		},
 		logger: silentLogger,
 	}
@@ -145,7 +146,7 @@ func (api *API) SetAuthType(authType int) {
 // ZoneIDByName retrieves a zone's ID from the name.
 func (api *API) ZoneIDByName(zoneName string) (string, error) {
 	zoneName = normalizeZoneName(zoneName)
-	res, err := api.ListZonesContext(context.Background(), WithZoneFilters(zoneName, api.AccountID, ""))
+	res, err := api.ListZonesContext(context.Background(), WithZoneFilters(zoneName, "", ""))
 	if err != nil {
 		return "", fmt.Errorf("ListZonesContext command failed: %w", err)
 	}
@@ -250,20 +251,6 @@ func (api *API) makeRequestWithAuthTypeAndHeadersComplete(ctx context.Context, m
 			return nil, fmt.Errorf("error caused by request rate limiting: %w", err)
 		}
 
-		if api.Debug {
-			if method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch {
-				buf := &bytes.Buffer{}
-				tee := io.TeeReader(reqBody, buf)
-				debugBody, _ := io.ReadAll(tee)
-				payloadBody, _ := io.ReadAll(buf)
-				fmt.Printf("cloudflare-go [DEBUG] REQUEST Method:%v URI:%s Headers:%#v Body:%v\n", method, api.BaseURL+uri, headers, string(debugBody))
-				// ensure we recreate the io.Reader for use
-				reqBody = bytes.NewReader(payloadBody)
-			} else {
-				fmt.Printf("cloudflare-go [DEBUG] REQUEST Method:%v URI:%s Headers:%#v Body:%v\n", method, api.BaseURL+uri, headers, nil)
-			}
-		}
-
 		resp, respErr = api.request(ctx, method, uri, reqBody, authType, headers)
 
 		// short circuit processing on context timeouts
@@ -278,18 +265,8 @@ func (api *API) makeRequestWithAuthTypeAndHeadersComplete(ctx context.Context, m
 				respErr = errors.New("exceeded available rate limit retries")
 			}
 
-			// if we got a valid http response, try to read body so we can reuse the connection
-			// see https://golang.org/pkg/net/http/#Client.Do
 			if respErr == nil {
-				respBody, err = io.ReadAll(resp.Body)
-				resp.Body.Close()
-
-				respErr = fmt.Errorf("could not read response body: %w", err)
-
-				api.logger.Printf("Request: %s %s got an error response %d: %s\n", method, uri, resp.StatusCode,
-					strings.Replace(strings.Replace(string(respBody), "\n", "", -1), "\t", "", -1))
-			} else {
-				api.logger.Printf("Error performing request: %s %s : %s \n", method, uri, respErr.Error())
+				respErr = fmt.Errorf("received %s response (HTTP %d), please try again later", strings.ToLower(http.StatusText(resp.StatusCode)), resp.StatusCode)
 			}
 			continue
 		} else {
@@ -298,6 +275,7 @@ func (api *API) makeRequestWithAuthTypeAndHeadersComplete(ctx context.Context, m
 			if err != nil {
 				return nil, fmt.Errorf("could not read response body: %w", err)
 			}
+
 			break
 		}
 	}
@@ -305,10 +283,6 @@ func (api *API) makeRequestWithAuthTypeAndHeadersComplete(ctx context.Context, m
 	// still had an error after all retries
 	if respErr != nil {
 		return nil, respErr
-	}
-
-	if api.Debug {
-		fmt.Printf("cloudflare-go [DEBUG] RESPONSE StatusCode:%d RayID:%s ContentType:%s Body:%#v\n", resp.StatusCode, resp.Header.Get("cf-ray"), resp.Header.Get("content-type"), string(respBody))
 	}
 
 	if resp.StatusCode >= http.StatusBadRequest {
@@ -408,25 +382,37 @@ func (api *API) request(ctx context.Context, method, uri string, reqBody io.Read
 		req.Header.Set("Content-Type", "application/json")
 	}
 
+	if api.Debug {
+		dump, err := httputil.DumpRequestOut(req, true)
+		if err != nil {
+			return nil, err
+		}
+
+		// Strip out any sensitive information from the request payload.
+		sensitiveKeys := []string{api.APIKey, api.APIEmail, api.APIToken, api.APIUserServiceKey}
+		for _, key := range sensitiveKeys {
+			if key != "" {
+				valueRegex := regexp.MustCompile(fmt.Sprintf("(?m)%s", key))
+				dump = valueRegex.ReplaceAll(dump, []byte("[redacted]"))
+			}
+		}
+		log.Printf("\n%s", string(dump))
+	}
+
 	resp, err := api.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
 
-	return resp, nil
-}
-
-// Returns the base URL to use for API endpoints that exist for accounts.
-// If an account option was used when creating the API instance, returns
-// the account URL.
-//
-// accountBase is the base URL for endpoints referring to the current user.
-// It exists as a parameter because it is not consistent across APIs.
-func (api *API) userBaseURL(accountBase string) string {
-	if api.AccountID != "" {
-		return "/accounts/" + api.AccountID
+	if api.Debug {
+		dump, err := httputil.DumpResponse(resp, true)
+		if err != nil {
+			return resp, err
+		}
+		log.Printf("\n%s", string(dump))
 	}
-	return accountBase
+
+	return resp, nil
 }
 
 // copyHeader copies all headers for `source` and sets them on `target`.
@@ -596,3 +582,10 @@ func checkResultInfo(perPage, page, count int, info *ResultInfo) bool {
 		panic("checkResultInfo: impossible")
 	}
 }
+
+type OrderDirection string
+
+const (
+	OrderDirectionAsc  OrderDirection = "asc"
+	OrderDirectionDesc OrderDirection = "desc"
+)

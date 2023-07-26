@@ -3,12 +3,15 @@ package cloudflare
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
+)
 
-	"errors"
+var (
+	ErrMissingRulesetPhase = errors.New("missing required phase")
 )
 
 const (
@@ -36,11 +39,13 @@ const (
 	RulesetPhaseHTTPResponseFirewallManaged         RulesetPhase = "http_response_firewall_managed"
 	RulesetPhaseHTTPResponseHeadersTransform        RulesetPhase = "http_response_headers_transform"
 	RulesetPhaseHTTPResponseHeadersTransformManaged RulesetPhase = "http_response_headers_transform_managed"
+	RulesetPhaseHTTPResponseCompression             RulesetPhase = "http_response_compression"
 	RulesetPhaseMagicTransit                        RulesetPhase = "magic_transit"
 	RulesetPhaseRateLimit                           RulesetPhase = "http_ratelimit"
 	RulesetPhaseSuperBotFightMode                   RulesetPhase = "http_request_sbfm"
 	RulesetPhaseHTTPConfigSettings                  RulesetPhase = "http_config_settings"
 
+	RulesetRuleActionAllow                RulesetRuleAction = "allow"
 	RulesetRuleActionBlock                RulesetRuleAction = "block"
 	RulesetRuleActionChallenge            RulesetRuleAction = "challenge"
 	RulesetRuleActionDDoSDynamic          RulesetRuleAction = "ddos_dynamic"
@@ -58,6 +63,7 @@ const (
 	RulesetRuleActionSetConfig            RulesetRuleAction = "set_config"
 	RulesetRuleActionServeError           RulesetRuleAction = "serve_error"
 	RulesetRuleActionSkip                 RulesetRuleAction = "skip"
+	RulesetRuleActionCompressResponse     RulesetRuleAction = "compress_response"
 
 	RulesetActionParameterProductBIC           RulesetActionParameterProduct = "bic"
 	RulesetActionParameterProductHOT           RulesetActionParameterProduct = "hot"
@@ -69,6 +75,7 @@ const (
 
 	RulesetRuleActionParametersHTTPHeaderOperationRemove RulesetRuleActionParametersHTTPHeaderOperation = "remove"
 	RulesetRuleActionParametersHTTPHeaderOperationSet    RulesetRuleActionParametersHTTPHeaderOperation = "set"
+	RulesetRuleActionParametersHTTPHeaderOperationAdd    RulesetRuleActionParametersHTTPHeaderOperation = "add"
 )
 
 // RulesetKindValues exposes all the available `RulesetKind` values as a slice
@@ -105,6 +112,7 @@ func RulesetPhaseValues() []string {
 		string(RulesetPhaseHTTPResponseFirewallManaged),
 		string(RulesetPhaseHTTPResponseHeadersTransform),
 		string(RulesetPhaseHTTPResponseHeadersTransformManaged),
+		string(RulesetPhaseHTTPResponseCompression),
 		string(RulesetPhaseMagicTransit),
 		string(RulesetPhaseRateLimit),
 		string(RulesetPhaseSuperBotFightMode),
@@ -116,6 +124,7 @@ func RulesetPhaseValues() []string {
 // as a slice of strings.
 func RulesetRuleActionValues() []string {
 	return []string{
+		string(RulesetRuleActionAllow),
 		string(RulesetRuleActionBlock),
 		string(RulesetRuleActionChallenge),
 		string(RulesetRuleActionDDoSDynamic),
@@ -133,6 +142,7 @@ func RulesetRuleActionValues() []string {
 		string(RulesetRuleActionSetConfig),
 		string(RulesetRuleActionServeError),
 		string(RulesetRuleActionSkip),
+		string(RulesetRuleActionCompressResponse),
 	}
 }
 
@@ -154,6 +164,7 @@ func RulesetRuleActionParametersHTTPHeaderOperationValues() []string {
 	return []string{
 		string(RulesetRuleActionParametersHTTPHeaderOperationRemove),
 		string(RulesetRuleActionParametersHTTPHeaderOperationSet),
+		string(RulesetRuleActionParametersHTTPHeaderOperationAdd),
 	}
 }
 
@@ -186,7 +197,7 @@ type Ruleset struct {
 	Name                     string        `json:"name,omitempty"`
 	Description              string        `json:"description,omitempty"`
 	Kind                     string        `json:"kind,omitempty"`
-	Version                  string        `json:"version,omitempty"`
+	Version                  *string       `json:"version,omitempty"`
 	LastUpdated              *time.Time    `json:"last_updated,omitempty"`
 	Phase                    string        `json:"phase,omitempty"`
 	Rules                    []RulesetRule `json:"rules"`
@@ -202,53 +213,54 @@ type RulesetActionParametersLogCustomField struct {
 // RulesetRuleActionParameters specifies the action parameters for a Ruleset
 // rule.
 type RulesetRuleActionParameters struct {
-	ID                      string                                           `json:"id,omitempty"`
-	Ruleset                 string                                           `json:"ruleset,omitempty"`
-	Rulesets                []string                                         `json:"rulesets,omitempty"`
-	Rules                   map[string][]string                              `json:"rules,omitempty"`
-	Increment               int                                              `json:"increment,omitempty"`
-	URI                     *RulesetRuleActionParametersURI                  `json:"uri,omitempty"`
-	Headers                 map[string]RulesetRuleActionParametersHTTPHeader `json:"headers,omitempty"`
-	Products                []string                                         `json:"products,omitempty"`
-	Phases                  []string                                         `json:"phases,omitempty"`
-	Overrides               *RulesetRuleActionParametersOverrides            `json:"overrides,omitempty"`
-	MatchedData             *RulesetRuleActionParametersMatchedData          `json:"matched_data,omitempty"`
-	Version                 string                                           `json:"version,omitempty"`
-	Response                *RulesetRuleActionParametersBlockResponse        `json:"response,omitempty"`
-	HostHeader              string                                           `json:"host_header,omitempty"`
-	Origin                  *RulesetRuleActionParametersOrigin               `json:"origin,omitempty"`
-	SNI                     *RulesetRuleActionParametersSni                  `json:"sni,omitempty"`
-	RequestFields           []RulesetActionParametersLogCustomField          `json:"request_fields,omitempty"`
-	ResponseFields          []RulesetActionParametersLogCustomField          `json:"response_fields,omitempty"`
-	CookieFields            []RulesetActionParametersLogCustomField          `json:"cookie_fields,omitempty"`
-	Cache                   *bool                                            `json:"cache,omitempty"`
-	EdgeTTL                 *RulesetRuleActionParametersEdgeTTL              `json:"edge_ttl,omitempty"`
-	BrowserTTL              *RulesetRuleActionParametersBrowserTTL           `json:"browser_ttl,omitempty"`
-	ServeStale              *RulesetRuleActionParametersServeStale           `json:"serve_stale,omitempty"`
-	Content                 string                                           `json:"content,omitempty"`
-	ContentType             string                                           `json:"content_type,omitempty"`
-	StatusCode              uint16                                           `json:"status_code,omitempty"`
-	RespectStrongETags      *bool                                            `json:"respect_strong_etags,omitempty"`
-	CacheKey                *RulesetRuleActionParametersCacheKey             `json:"cache_key,omitempty"`
-	OriginErrorPagePassthru *bool                                            `json:"origin_error_page_passthru,omitempty"`
-	FromList                *RulesetRuleActionParametersFromList             `json:"from_list,omitempty"`
-	FromValue               *RulesetRuleActionParametersFromValue            `json:"from_value,omitempty"`
-	AutomaticHTTPSRewrites  *bool                                            `json:"automatic_https_rewrites,omitempty"`
-	AutoMinify              *RulesetRuleActionParametersAutoMinify           `json:"autominify,omitempty"`
-	BrowserIntegrityCheck   *bool                                            `json:"bic,omitempty"`
-	DisableApps             *bool                                            `json:"disable_apps,omitempty"`
-	DisableZaraz            *bool                                            `json:"disable_zaraz,omitempty"`
-	DisableRailgun          *bool                                            `json:"disable_railgun,omitempty"`
-	EmailObfuscation        *bool                                            `json:"email_obfuscation,omitempty"`
-	Mirage                  *bool                                            `json:"mirage,omitempty"`
-	OpportunisticEncryption *bool                                            `json:"opportunistic_encryption,omitempty"`
-	Polish                  *Polish                                          `json:"polish,omitempty"`
-	RocketLoader            *bool                                            `json:"rocket_loader,omitempty"`
-	SecurityLevel           *SecurityLevel                                   `json:"security_level,omitempty"`
-	ServerSideExcludes      *bool                                            `json:"server_side_excludes,omitempty"`
-	SSL                     *SSL                                             `json:"ssl,omitempty"`
-	SXG                     *bool                                            `json:"sxg,omitempty"`
-	HotLinkProtection       *bool                                            `json:"hotlink_protection,omitempty"`
+	ID                      string                                            `json:"id,omitempty"`
+	Ruleset                 string                                            `json:"ruleset,omitempty"`
+	Rulesets                []string                                          `json:"rulesets,omitempty"`
+	Rules                   map[string][]string                               `json:"rules,omitempty"`
+	Increment               int                                               `json:"increment,omitempty"`
+	URI                     *RulesetRuleActionParametersURI                   `json:"uri,omitempty"`
+	Headers                 map[string]RulesetRuleActionParametersHTTPHeader  `json:"headers,omitempty"`
+	Products                []string                                          `json:"products,omitempty"`
+	Phases                  []string                                          `json:"phases,omitempty"`
+	Overrides               *RulesetRuleActionParametersOverrides             `json:"overrides,omitempty"`
+	MatchedData             *RulesetRuleActionParametersMatchedData           `json:"matched_data,omitempty"`
+	Version                 *string                                           `json:"version,omitempty"`
+	Response                *RulesetRuleActionParametersBlockResponse         `json:"response,omitempty"`
+	HostHeader              string                                            `json:"host_header,omitempty"`
+	Origin                  *RulesetRuleActionParametersOrigin                `json:"origin,omitempty"`
+	SNI                     *RulesetRuleActionParametersSni                   `json:"sni,omitempty"`
+	RequestFields           []RulesetActionParametersLogCustomField           `json:"request_fields,omitempty"`
+	ResponseFields          []RulesetActionParametersLogCustomField           `json:"response_fields,omitempty"`
+	CookieFields            []RulesetActionParametersLogCustomField           `json:"cookie_fields,omitempty"`
+	Cache                   *bool                                             `json:"cache,omitempty"`
+	EdgeTTL                 *RulesetRuleActionParametersEdgeTTL               `json:"edge_ttl,omitempty"`
+	BrowserTTL              *RulesetRuleActionParametersBrowserTTL            `json:"browser_ttl,omitempty"`
+	ServeStale              *RulesetRuleActionParametersServeStale            `json:"serve_stale,omitempty"`
+	Content                 string                                            `json:"content,omitempty"`
+	ContentType             string                                            `json:"content_type,omitempty"`
+	StatusCode              uint16                                            `json:"status_code,omitempty"`
+	RespectStrongETags      *bool                                             `json:"respect_strong_etags,omitempty"`
+	CacheKey                *RulesetRuleActionParametersCacheKey              `json:"cache_key,omitempty"`
+	OriginErrorPagePassthru *bool                                             `json:"origin_error_page_passthru,omitempty"`
+	FromList                *RulesetRuleActionParametersFromList              `json:"from_list,omitempty"`
+	FromValue               *RulesetRuleActionParametersFromValue             `json:"from_value,omitempty"`
+	AutomaticHTTPSRewrites  *bool                                             `json:"automatic_https_rewrites,omitempty"`
+	AutoMinify              *RulesetRuleActionParametersAutoMinify            `json:"autominify,omitempty"`
+	BrowserIntegrityCheck   *bool                                             `json:"bic,omitempty"`
+	DisableApps             *bool                                             `json:"disable_apps,omitempty"`
+	DisableZaraz            *bool                                             `json:"disable_zaraz,omitempty"`
+	DisableRailgun          *bool                                             `json:"disable_railgun,omitempty"`
+	EmailObfuscation        *bool                                             `json:"email_obfuscation,omitempty"`
+	Mirage                  *bool                                             `json:"mirage,omitempty"`
+	OpportunisticEncryption *bool                                             `json:"opportunistic_encryption,omitempty"`
+	Polish                  *Polish                                           `json:"polish,omitempty"`
+	RocketLoader            *bool                                             `json:"rocket_loader,omitempty"`
+	SecurityLevel           *SecurityLevel                                    `json:"security_level,omitempty"`
+	ServerSideExcludes      *bool                                             `json:"server_side_excludes,omitempty"`
+	SSL                     *SSL                                              `json:"ssl,omitempty"`
+	SXG                     *bool                                             `json:"sxg,omitempty"`
+	HotLinkProtection       *bool                                             `json:"hotlink_protection,omitempty"`
+	Algorithms              []RulesetRuleActionParametersCompressionAlgorithm `json:"algorithms,omitempty"`
 }
 
 // RulesetRuleActionParametersFromList holds the FromList struct for
@@ -267,7 +279,7 @@ type RulesetRuleActionParametersAutoMinify struct {
 type RulesetRuleActionParametersFromValue struct {
 	StatusCode          uint16                               `json:"status_code,omitempty"`
 	TargetURL           RulesetRuleActionParametersTargetURL `json:"target_url"`
-	PreserveQueryString bool                                 `json:"preserve_query_string,omitempty"`
+	PreserveQueryString *bool                                `json:"preserve_query_string,omitempty"`
 }
 
 type RulesetRuleActionParametersTargetURL struct {
@@ -331,6 +343,7 @@ type RulesetRuleActionParametersCustomKeyFields struct {
 type RulesetRuleActionParametersCustomKeyQuery struct {
 	Include *RulesetRuleActionParametersCustomKeyList `json:"include,omitempty"`
 	Exclude *RulesetRuleActionParametersCustomKeyList `json:"exclude,omitempty"`
+	Ignore  *bool                                     `json:"ignore,omitempty"`
 }
 
 type RulesetRuleActionParametersCustomKeyList struct {
@@ -381,7 +394,7 @@ type RulesetRuleActionParametersBlockResponse struct {
 type RulesetRuleActionParametersURI struct {
 	Path   *RulesetRuleActionParametersURIPath  `json:"path,omitempty"`
 	Query  *RulesetRuleActionParametersURIQuery `json:"query,omitempty"`
-	Origin bool                                 `json:"origin,omitempty"`
+	Origin *bool                                `json:"origin,omitempty"`
 }
 
 // RulesetRuleActionParametersURIPath holds the path specific portion of a URI
@@ -394,8 +407,8 @@ type RulesetRuleActionParametersURIPath struct {
 // RulesetRuleActionParametersURIQuery holds the query specific portion of a URI
 // action parameter.
 type RulesetRuleActionParametersURIQuery struct {
-	Value      string `json:"value,omitempty"`
-	Expression string `json:"expression,omitempty"`
+	Value      *string `json:"value,omitempty"`
+	Expression string  `json:"expression,omitempty"`
 }
 
 // RulesetRuleActionParametersHTTPHeader is the definition for define action
@@ -445,6 +458,12 @@ type RulesetRuleActionParametersOrigin struct {
 // parameters that involve SNI overrides.
 type RulesetRuleActionParametersSni struct {
 	Value string `json:"value"`
+}
+
+// RulesetRuleActionParametersCompressionAlgorithm defines a compression
+// algorithm for the compress_response action.
+type RulesetRuleActionParametersCompressionAlgorithm struct {
+	Name string `json:"name"`
 }
 
 type Polish int
@@ -627,14 +646,14 @@ func (p SSL) IntoRef() *SSL {
 // RulesetRule contains information about a single Ruleset Rule.
 type RulesetRule struct {
 	ID                     string                             `json:"id,omitempty"`
-	Version                string                             `json:"version,omitempty"`
+	Version                *string                            `json:"version,omitempty"`
 	Action                 string                             `json:"action"`
 	ActionParameters       *RulesetRuleActionParameters       `json:"action_parameters,omitempty"`
 	Expression             string                             `json:"expression"`
-	Description            string                             `json:"description"`
+	Description            string                             `json:"description,omitempty"`
 	LastUpdated            *time.Time                         `json:"last_updated,omitempty"`
 	Ref                    string                             `json:"ref,omitempty"`
-	Enabled                bool                               `json:"enabled"`
+	Enabled                *bool                              `json:"enabled,omitempty"`
 	ScoreThreshold         int                                `json:"score_threshold,omitempty"`
 	RateLimit              *RulesetRuleRateLimit              `json:"ratelimit,omitempty"`
 	ExposedCredentialCheck *RulesetRuleExposedCredentialCheck `json:"exposed_credential_check,omitempty"`
@@ -643,12 +662,14 @@ type RulesetRule struct {
 
 // RulesetRuleRateLimit contains the structure of a HTTP rate limit Ruleset Rule.
 type RulesetRuleRateLimit struct {
-	Characteristics    []string `json:"characteristics,omitempty"`
-	RequestsPerPeriod  int      `json:"requests_per_period,omitempty"`
-	Period             int      `json:"period,omitempty"`
-	MitigationTimeout  int      `json:"mitigation_timeout,omitempty"`
-	CountingExpression string   `json:"counting_expression,omitempty"`
-	RequestsToOrigin   bool     `json:"requests_to_origin,omitempty"`
+	Characteristics         []string `json:"characteristics,omitempty"`
+	RequestsPerPeriod       int      `json:"requests_per_period,omitempty"`
+	ScorePerPeriod          int      `json:"score_per_period,omitempty"`
+	ScoreResponseHeaderName string   `json:"score_response_header_name,omitempty"`
+	Period                  int      `json:"period,omitempty"`
+	MitigationTimeout       int      `json:"mitigation_timeout,omitempty"`
+	CountingExpression      string   `json:"counting_expression,omitempty"`
+	RequestsToOrigin        bool     `json:"requests_to_origin,omitempty"`
 }
 
 // RulesetRuleExposedCredentialCheck contains the structure of an exposed
@@ -694,24 +715,40 @@ type UpdateRulesetResponse struct {
 	Result Ruleset `json:"result"`
 }
 
-// ListZoneRulesets fetches all rulesets for a zone.
+type ListRulesetsParams struct{}
+
+type CreateRulesetParams struct {
+	Name                     string        `json:"name,omitempty"`
+	Description              string        `json:"description,omitempty"`
+	Kind                     string        `json:"kind,omitempty"`
+	Version                  *string       `json:"version,omitempty"`
+	Phase                    string        `json:"phase,omitempty"`
+	Rules                    []RulesetRule `json:"rules"`
+	ShareableEntitlementName string        `json:"shareable_entitlement_name,omitempty"`
+}
+
+type UpdateRulesetParams struct {
+	ID          string        `json:"-"`
+	Description string        `json:"description"`
+	Rules       []RulesetRule `json:"rules"`
+}
+
+type UpdateEntrypointRulesetParams struct {
+	Name        string        `json:"name,omitempty"`
+	Description string        `json:"description,omitempty"`
+	Kind        string        `json:"kind,omitempty"`
+	Version     *string       `json:"version,omitempty"`
+	Phase       string        `json:"-"`
+	Rules       []RulesetRule `json:"rules"`
+}
+
+// ListRulesets lists all Rulesets for a given zone or account depending on the
+// ResourceContainer type provided.
 //
 // API reference: https://api.cloudflare.com/#zone-rulesets-list-zone-rulesets
-func (api *API) ListZoneRulesets(ctx context.Context, zoneID string) ([]Ruleset, error) {
-	return api.listRulesets(ctx, ZoneRouteRoot, zoneID)
-}
-
-// ListAccountRulesets fetches all rulesets for an account.
-//
 // API reference: https://api.cloudflare.com/#account-rulesets-list-account-rulesets
-func (api *API) ListAccountRulesets(ctx context.Context, accountID string) ([]Ruleset, error) {
-	return api.listRulesets(ctx, AccountRouteRoot, accountID)
-}
-
-// listRulesets lists all Rulesets for a given zone or account depending on the
-// identifier type provided.
-func (api *API) listRulesets(ctx context.Context, identifierType RouteRoot, identifier string) ([]Ruleset, error) {
-	uri := fmt.Sprintf("/%s/%s/rulesets", identifierType, identifier)
+func (api *API) ListRulesets(ctx context.Context, rc *ResourceContainer, params ListRulesetsParams) ([]Ruleset, error) {
+	uri := fmt.Sprintf("/%s/%s/rulesets", rc.Level, rc.Identifier)
 
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
@@ -726,24 +763,12 @@ func (api *API) listRulesets(ctx context.Context, identifierType RouteRoot, iden
 	return result.Result, nil
 }
 
-// GetZoneRuleset fetches a single ruleset for a zone.
+// GetRuleset fetches a single ruleset.
 //
 // API reference: https://api.cloudflare.com/#zone-rulesets-get-a-zone-ruleset
-func (api *API) GetZoneRuleset(ctx context.Context, zoneID, rulesetID string) (Ruleset, error) {
-	return api.getRuleset(ctx, ZoneRouteRoot, zoneID, rulesetID)
-}
-
-// GetAccountRuleset fetches a single ruleset for an account.
-//
 // API reference: https://api.cloudflare.com/#account-rulesets-get-an-account-ruleset
-func (api *API) GetAccountRuleset(ctx context.Context, accountID, rulesetID string) (Ruleset, error) {
-	return api.getRuleset(ctx, AccountRouteRoot, accountID, rulesetID)
-}
-
-// getRuleset fetches a single ruleset based on the zone or account, the
-// identifier and the ruleset ID.
-func (api *API) getRuleset(ctx context.Context, identifierType RouteRoot, identifier, rulesetID string) (Ruleset, error) {
-	uri := fmt.Sprintf("/%s/%s/rulesets/%s", identifierType, identifier, rulesetID)
+func (api *API) GetRuleset(ctx context.Context, rc *ResourceContainer, rulesetID string) (Ruleset, error) {
+	uri := fmt.Sprintf("/%s/%s/rulesets/%s", rc.Level, rc.Identifier, rulesetID)
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return Ruleset{}, err
@@ -757,23 +782,13 @@ func (api *API) getRuleset(ctx context.Context, identifierType RouteRoot, identi
 	return result.Result, nil
 }
 
-// CreateZoneRuleset creates a new ruleset for a zone.
+// CreateRuleset initialises a new ruleset.
 //
 // API reference: https://api.cloudflare.com/#zone-rulesets-create-zone-ruleset
-func (api *API) CreateZoneRuleset(ctx context.Context, zoneID string, ruleset Ruleset) (Ruleset, error) {
-	return api.createRuleset(ctx, ZoneRouteRoot, zoneID, ruleset)
-}
-
-// CreateAccountRuleset creates a new ruleset for an account.
-//
 // API reference: https://api.cloudflare.com/#account-rulesets-create-account-ruleset
-func (api *API) CreateAccountRuleset(ctx context.Context, accountID string, ruleset Ruleset) (Ruleset, error) {
-	return api.createRuleset(ctx, AccountRouteRoot, accountID, ruleset)
-}
-
-func (api *API) createRuleset(ctx context.Context, identifierType RouteRoot, identifier string, ruleset Ruleset) (Ruleset, error) {
-	uri := fmt.Sprintf("/%s/%s/rulesets", identifierType, identifier)
-	res, err := api.makeRequestContext(ctx, http.MethodPost, uri, ruleset)
+func (api *API) CreateRuleset(ctx context.Context, rc *ResourceContainer, params CreateRulesetParams) (Ruleset, error) {
+	uri := fmt.Sprintf("/%s/%s/rulesets", rc.Level, rc.Identifier)
+	res, err := api.makeRequestContext(ctx, http.MethodPost, uri, params)
 	if err != nil {
 		return Ruleset{}, err
 	}
@@ -786,23 +801,12 @@ func (api *API) createRuleset(ctx context.Context, identifierType RouteRoot, ide
 	return result.Result, nil
 }
 
-// DeleteZoneRuleset deletes a single ruleset for a zone.
+// DeleteRuleset removes a ruleset based on the ruleset ID.
 //
 // API reference: https://api.cloudflare.com/#zone-rulesets-delete-zone-ruleset
-func (api *API) DeleteZoneRuleset(ctx context.Context, zoneID, rulesetID string) error {
-	return api.deleteRuleset(ctx, ZoneRouteRoot, zoneID, rulesetID)
-}
-
-// DeleteAccountRuleset deletes a single ruleset for an account.
-//
 // API reference: https://api.cloudflare.com/#account-rulesets-delete-account-ruleset
-func (api *API) DeleteAccountRuleset(ctx context.Context, accountID, rulesetID string) error {
-	return api.deleteRuleset(ctx, AccountRouteRoot, accountID, rulesetID)
-}
-
-// deleteRuleset removes a ruleset based on the ruleset ID.
-func (api *API) deleteRuleset(ctx context.Context, identifierType RouteRoot, identifier, rulesetID string) error {
-	uri := fmt.Sprintf("/%s/%s/rulesets/%s", identifierType, identifier, rulesetID)
+func (api *API) DeleteRuleset(ctx context.Context, rc *ResourceContainer, rulesetID string) error {
+	uri := fmt.Sprintf("/%s/%s/rulesets/%s", rc.Level, rc.Identifier, rulesetID)
 	res, err := api.makeRequestContext(ctx, http.MethodDelete, uri, nil)
 	if err != nil {
 		return err
@@ -818,25 +822,17 @@ func (api *API) deleteRuleset(ctx context.Context, identifierType RouteRoot, ide
 	return nil
 }
 
-// UpdateZoneRuleset updates a single ruleset for a zone.
+// UpdateRuleset updates a ruleset based on the ruleset ID.
 //
 // API reference: https://api.cloudflare.com/#zone-rulesets-update-a-zone-ruleset
-func (api *API) UpdateZoneRuleset(ctx context.Context, zoneID, rulesetID, description string, rules []RulesetRule) (Ruleset, error) {
-	return api.updateRuleset(ctx, ZoneRouteRoot, zoneID, rulesetID, description, rules)
-}
-
-// UpdateAccountRuleset updates a single ruleset for an account.
-//
 // API reference: https://api.cloudflare.com/#account-rulesets-update-account-ruleset
-func (api *API) UpdateAccountRuleset(ctx context.Context, accountID, rulesetID, description string, rules []RulesetRule) (Ruleset, error) {
-	return api.updateRuleset(ctx, AccountRouteRoot, accountID, rulesetID, description, rules)
-}
+func (api *API) UpdateRuleset(ctx context.Context, rc *ResourceContainer, params UpdateRulesetParams) (Ruleset, error) {
+	if params.ID == "" {
+		return Ruleset{}, ErrMissingResourceIdentifier
+	}
 
-// updateRuleset updates a ruleset based on the ruleset ID.
-func (api *API) updateRuleset(ctx context.Context, identifierType RouteRoot, identifier, rulesetID, description string, rules []RulesetRule) (Ruleset, error) {
-	uri := fmt.Sprintf("/%s/%s/rulesets/%s", identifierType, identifier, rulesetID)
-	payload := UpdateRulesetRequest{Description: description, Rules: rules}
-	res, err := api.makeRequestContext(ctx, http.MethodPut, uri, payload)
+	uri := fmt.Sprintf("/%s/%s/rulesets/%s", rc.Level, rc.Identifier, params.ID)
+	res, err := api.makeRequestContext(ctx, http.MethodPut, uri, params)
 	if err != nil {
 		return Ruleset{}, err
 	}
@@ -849,24 +845,9 @@ func (api *API) updateRuleset(ctx context.Context, identifierType RouteRoot, ide
 	return result.Result, nil
 }
 
-// GetZoneRulesetPhase returns a ruleset phase for a zone.
-//
-// API reference: TBA.
-func (api *API) GetZoneRulesetPhase(ctx context.Context, zoneID, rulesetPhase string) (Ruleset, error) {
-	return api.getRulesetPhase(ctx, ZoneRouteRoot, zoneID, rulesetPhase)
-}
-
-// GetAccountRulesetPhase returns a ruleset phase for an account.
-//
-// API reference: TBA.
-func (api *API) GetAccountRulesetPhase(ctx context.Context, accountID, rulesetPhase string) (Ruleset, error) {
-	return api.getRulesetPhase(ctx, AccountRouteRoot, accountID, rulesetPhase)
-}
-
-// getRulesetPhase returns a ruleset phase based on the zone or account and the
-// identifier.
-func (api *API) getRulesetPhase(ctx context.Context, identifierType RouteRoot, identifier, rulesetPhase string) (Ruleset, error) {
-	uri := fmt.Sprintf("/%s/%s/rulesets/phases/%s/entrypoint", identifierType, identifier, rulesetPhase)
+// GetEntrypointRuleset returns a ruleset phase based on the resource entrypoint.
+func (api *API) GetEntrypointRuleset(ctx context.Context, rc *ResourceContainer, phase string) (Ruleset, error) {
+	uri := fmt.Sprintf("/%s/%s/rulesets/phases/%s/entrypoint", rc.Level, rc.Identifier, phase)
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return Ruleset{}, err
@@ -880,25 +861,14 @@ func (api *API) getRulesetPhase(ctx context.Context, identifierType RouteRoot, i
 	return result.Result, nil
 }
 
-// UpdateZoneRulesetPhase updates a ruleset phase for a zone.
-//
-// API reference: TBA.
-func (api *API) UpdateZoneRulesetPhase(ctx context.Context, zoneID, rulesetPhase string, ruleset Ruleset) (Ruleset, error) {
-	return api.updateRulesetPhase(ctx, ZoneRouteRoot, zoneID, rulesetPhase, ruleset)
-}
+// UpdateEntrypointRuleset updates a ruleset phase based on the entrypoint.
+func (api *API) UpdateEntrypointRuleset(ctx context.Context, rc *ResourceContainer, params UpdateEntrypointRulesetParams) (Ruleset, error) {
+	if params.Phase == "" {
+		return Ruleset{}, ErrMissingRulesetPhase
+	}
 
-// UpdateAccountRulesetPhase updates a ruleset phase for an account.
-//
-// API reference: TBA.
-func (api *API) UpdateAccountRulesetPhase(ctx context.Context, accountID, rulesetPhase string, ruleset Ruleset) (Ruleset, error) {
-	return api.updateRulesetPhase(ctx, AccountRouteRoot, accountID, rulesetPhase, ruleset)
-}
-
-// updateRulesetPhase updates a ruleset phase based on the zone or account, the
-// identifier and the rules.
-func (api *API) updateRulesetPhase(ctx context.Context, identifierType RouteRoot, identifier, rulesetPhase string, ruleset Ruleset) (Ruleset, error) {
-	uri := fmt.Sprintf("/%s/%s/rulesets/phases/%s/entrypoint", identifierType, identifier, rulesetPhase)
-	res, err := api.makeRequestContext(ctx, http.MethodPut, uri, ruleset)
+	uri := fmt.Sprintf("/%s/%s/rulesets/phases/%s/entrypoint", rc.Level, rc.Identifier, params.Phase)
+	res, err := api.makeRequestContext(ctx, http.MethodPut, uri, params)
 	if err != nil {
 		return Ruleset{}, err
 	}
