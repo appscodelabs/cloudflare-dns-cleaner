@@ -5,7 +5,7 @@ DELETE all dns records from a Cloudflare Zone
 ## Installation
 
 ```bash
-go install github.com/appscodelabs/cloudflare-dns-cleaner@latest
+go install github.com/appscodelabs/cloudflare-dns-cleaner@master
 ```
 
 ## Usage
